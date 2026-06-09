@@ -503,7 +503,9 @@ W_VARIANCE = 0.20
 
 ## Demo
 
-https://github.com/user-attachments/assets/demo
+[Watch the Demo Video](https://github.com/gauri-dhanakshirur/TerrainGuard_Bullseye/raw/main/demo.webm)
+
+<video src="https://github.com/gauri-dhanakshirur/TerrainGuard_Bullseye/raw/main/demo.webm" width="100%" controls></video>
 
 *Press ⚠ MAYDAY to activate the emergency triage engine and see the glide cone, landing vectors, and sector analysis.*
 
