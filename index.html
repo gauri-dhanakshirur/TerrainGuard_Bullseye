@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="TerrainGuard CFIT Prevention System – Web GIS Dashboard for terrain analysis and emergency forced-landing triage.">
+<title>TerrainGuard – CFIT Prevention Dashboard</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ─────────── CSS RESET & VARIABLES ─────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --bg-primary: #0a0e1a;
+    --bg-secondary: #111827;
+    --bg-card: rgba(17, 24, 39, 0.85);
+    --bg-glass: rgba(15, 23, 42, 0.75);
+    --border-subtle: rgba(100, 200, 255, 0.12);
+    --border-accent: rgba(0, 255, 204, 0.3);
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --accent-cyan: #00ffcc;
+    --accent-blue: #38bdf8;
+    --accent-amber: #f59e0b;
+    --accent-red: #ef4444;
+    --accent-green: #22c55e;
+    --accent-purple: #a78bfa;
+    --glow-cyan: 0 0 20px rgba(0, 255, 204, 0.3);
+    --glow-red: 0 0 30px rgba(239, 68, 68, 0.5);
+    --font-sans: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html, body { height: 100%; overflow: hidden; }
+body {
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* ─────────── LAYOUT ─────────── */
+#app {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    grid-template-rows: 60px 1fr;
+    height: 100vh;
+    gap: 0;
+}
+
+/* ─────────── HEADER ─────────── */
+#header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, #0f172a 100%);
+    border-bottom: 1px solid var(--border-subtle);
+    z-index: 1000;
+}
+
+.logo-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    box-shadow: var(--glow-cyan);
+    animation: logoPulse 3s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(0,255,204,0.2); }
+    50% { box-shadow: 0 0 25px rgba(0,255,204,0.5); }
+}
+
+.logo-text {
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: 1.5px;
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.logo-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    margin-left: 12px;
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.status-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--accent-green);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    transition: var(--transition);
+}
+
+.status-pill.triage {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--accent-red);
+    border-color: rgba(239, 68, 68, 0.4);
+    animation: triagePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes triagePulse {
+    0%, 100% { box-shadow: none; }
+    50% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }
+}
+
+.status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    animation: dotBlink 2s ease-in-out infinite;
+}
+
+.status-pill.triage .status-dot {
+    background: var(--accent-red);
+    animation: dotBlink 0.8s ease-in-out infinite;
+}
+
+@keyframes dotBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/* ─────────── MAYDAY BUTTON ─────────── */
+#btn-mayday {
+    padding: 8px 22px;
+    border-radius: var(--radius-sm);
+    border: 2px solid var(--accent-red);
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--accent-red);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: var(--transition);
+    text-transform: uppercase;
+}
+
+#btn-mayday:hover {
+    background: rgba(239, 68, 68, 0.25);
+    box-shadow: var(--glow-red);
+    transform: translateY(-1px);
+}
+
+#btn-mayday.active {
+    background: var(--accent-red);
+    color: #fff;
+    animation: maydayPulse 1s ease-in-out infinite;
+}
+
+@keyframes maydayPulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+    50% { box-shadow: 0 0 35px rgba(239, 68, 68, 0.7); }
+}
+
+/* ─────────── MAP CONTAINER ─────────── */
+#map-wrap {
+    position: relative;
+    overflow: hidden;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+    background: var(--bg-primary);
+}
+
+/* ─────────── MAP TOOLBAR ─────────── */
+.map-toolbar {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 800;
+    display: flex;
+    gap: 8px;
+}
+
+.map-btn {
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    white-space: nowrap;
+}
+
+.map-btn:hover {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    background: rgba(0, 255, 204, 0.08);
+}
+
+.map-btn.active {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    background: rgba(0, 255, 204, 0.12);
+}
+
+/* ─────────── LAYER LEGEND ─────────── */
+.layer-legend {
+    position: absolute;
+    bottom: 24px;
+    left: 16px;
+    z-index: 800;
+    background: var(--bg-glass);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    min-width: 200px;
+}
+
+.layer-legend h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.legend-item:hover { color: var(--text-primary); }
+
+.legend-swatch {
+    width: 16px; height: 16px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.legend-toggle {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    border: 1.5px solid var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: var(--transition);
+}
+
+.legend-toggle.on {
+    background: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+}
+
+.legend-toggle.on::after {
+    content: '✓';
+    font-size: 9px;
+    color: var(--bg-primary);
+    font-weight: 700;
+}
+
+/* ─────────── SIDEBAR ─────────── */
+#sidebar {
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, #0d1117 100%);
+    border-left: 1px solid var(--border-subtle);
+    overflow-y: auto;
+    padding: 20px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-muted) transparent;
+}
+
+#sidebar::-webkit-scrollbar { width: 6px; }
+#sidebar::-webkit-scrollbar-track { background: transparent; }
+#sidebar::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+
+.sidebar-section {
+    margin-bottom: 24px;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.section-icon {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.section-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+/* ─────────── FLIGHT INFO CARD ─────────── */
+.info-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+    backdrop-filter: blur(8px);
+    transition: var(--transition);
+}
+
+.info-card:hover {
+    border-color: var(--border-accent);
+    transform: translateY(-1px);
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 12px;
+}
+
+.info-label {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.info-value {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 12px;
+}
+
+.info-value.highlight {
+    color: var(--accent-cyan);
+}
+
+/* ─────────── TRIAGE CARDS ─────────── */
+.triage-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+    position: relative;
+    overflow: hidden;
+    transition: var(--transition);
+    opacity: 0;
+    transform: translateX(20px);
+}
+
+.triage-card.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.triage-card:hover {
+    border-color: var(--border-accent);
+}
+
+.triage-priority {
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+}
+
+.triage-card .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-left: 10px;
+}
+
+.priority-badge {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    padding: 3px 10px;
+    border-radius: 12px;
+}
+
+.survival-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    text-transform: uppercase;
+}
+
+.survival-HIGH {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--accent-green);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.survival-MODERATE {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--accent-amber);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.survival-LOW {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--accent-red);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.survival-CATASTROPHIC {
+    background: rgba(239, 68, 68, 0.25);
+    color: #ff6666;
+    border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+.triage-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding-left: 10px;
+}
+
+.metric-box {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+}
+
+.metric-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.metric-value {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* ─────────── SECTOR TABLE ─────────── */
+.sector-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-top: 8px;
+}
+
+.sector-table th {
+    padding: 8px 6px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 10px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.sector-table td {
+    padding: 7px 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.sector-table tr:hover td {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* ─────────── MSA DISPLAY ─────────── */
+.msa-display {
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(0, 255, 204, 0.05), rgba(56, 189, 248, 0.05));
+    border: 1px solid var(--border-accent);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+}
+
+.msa-value {
+    font-family: var(--font-mono);
+    font-size: 36px;
+    font-weight: 800;
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+}
+
+.msa-unit {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-left: 4px;
+}
+
+.msa-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 6px;
+}
+
+/* ─────────── TRIAGE PLACEHOLDER ─────────── */
+.triage-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.triage-placeholder .icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+/* ─────────── WAYPOINT LIST ─────────── */
+.waypoint-list {
+    list-style: none;
+    padding: 0;
+}
+
+.waypoint-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.waypoint-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    flex-shrink: 0;
+}
+
+.waypoint-coords {
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+/* ─────────── SCROLLBAR FOR MAP POPUP ─────────── */
+.leaflet-popup-content-wrapper {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-accent) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+}
+
+.leaflet-popup-tip {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-accent) !important;
+}
+
+.leaflet-popup-content {
+    font-family: var(--font-sans) !important;
+    font-size: 12px !important;
+    line-height: 1.6 !important;
+    color: var(--text-primary) !important;
+}
+
+.popup-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: var(--accent-cyan);
+}
+
+.popup-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+}
+
+.popup-label { color: var(--text-muted); }
+.popup-val { font-family: var(--font-mono); font-weight: 600; }
+
+/* ─────────── DRAWING CURSOR ─────────── */
+.drawing-cursor .leaflet-grab { cursor: crosshair !important; }
+.drawing-cursor .leaflet-interactive { cursor: crosshair !important; }
+
+/* ─────────── ANIMATIONS ─────────── */
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in { animation: fadeSlideUp 0.4s ease-out forwards; }
+</style>
+</head>
+
+<body>
+<div id="app">
+
+    <!-- ═══════ HEADER ═══════ -->
+    <header id="header">
+        <div class="logo-group">
+            <div class="logo-icon">🛡️</div>
+            <span class="logo-text">TERRAINGUARD</span>
+            <span class="logo-sub">CFIT Prevention System</span>
+        </div>
+        <div class="header-controls">
+            <div class="status-pill" id="status-pill">
+                <span class="status-dot"></span>
+                <span id="status-text">NOMINAL</span>
+            </div>
+            <button id="btn-mayday" onclick="toggleMayday()">⚠ MAYDAY</button>
+        </div>
+    </header>
+
+    <!-- ═══════ MAP ═══════ -->
+    <div id="map-wrap">
+        <div id="map"></div>
+
+        <div class="map-toolbar">
+            <button class="map-btn" id="btn-add-wp" onclick="toggleDrawMode()">✚ Add Waypoint</button>
+            <button class="map-btn" id="btn-clear-wp" onclick="clearWaypoints()">✕ Clear</button>
+        </div>
+
+        <div class="layer-legend" id="layer-legend">
+            <h4>Map Layers</h4>
+            <div class="legend-item" onclick="toggleLayer('ttci')">
+                <div class="legend-toggle on" id="toggle-ttci"></div>
+                <div class="legend-swatch" style="background:linear-gradient(90deg,#00ff00,#ffff00,#ff0000);"></div>
+                <span>TTCI Overlay</span>
+            </div>
+            <div class="legend-item" onclick="toggleLayer('lulc')">
+                <div class="legend-toggle" id="toggle-lulc"></div>
+                <div class="legend-swatch" style="background:linear-gradient(90deg,#ff4444,#228b22,#88cc44,#4488ff,#ffaa00);"></div>
+                <span>LULC Overlay</span>
+            </div>
+            <div class="legend-item" onclick="toggleLayer('route')">
+                <div class="legend-toggle on" id="toggle-route"></div>
+                <div class="legend-swatch" style="background:#00e5ff;"></div>
+                <span>Flight Route</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════ SIDEBAR ═══════ -->
+    <div id="sidebar">
+
+        <!-- Flight Info -->
+        <div class="sidebar-section">
+            <div class="section-header">
+                <div class="section-icon" style="background:rgba(56,189,248,0.15);color:var(--accent-blue);">✈</div>
+                <span class="section-title">Flight Status</span>
+            </div>
+            <div class="info-card">
+                <div class="info-row">
+                    <span class="info-label">Position</span>
+                    <span class="info-value highlight" id="info-pos">77.220°E, 31.225°N</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Scene Region</span>
+                    <span class="info-value">Shimla, HP</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Grid Resolution</span>
+                    <span class="info-value">500 × 500 px</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Pixel GSD</span>
+                    <span class="info-value">~90 m</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Glide Envelope</span>
+                    <span class="info-value highlight" id="info-glide">8.0 NM</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TTCI Stats -->
+        <div class="sidebar-section">
+            <div class="section-header">
+                <div class="section-icon" style="background:rgba(0,255,204,0.12);color:var(--accent-cyan);">📊</div>
+                <span class="section-title">TTCI Statistics</span>
+            </div>
+            <div class="info-card">
+                <div class="info-row">
+                    <span class="info-label">Range</span>
+                    <span class="info-value">0.000 – 1.000</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Mean Complexity</span>
+                    <span class="info-value highlight" id="info-ttci-mean">0.226</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Risk Distribution</span>
+                    <span class="info-value">
+                        <span style="color:#22c55e;">■</span> Low
+                        <span style="color:#f59e0b;margin-left:6px;">■</span> Med
+                        <span style="color:#ef4444;margin-left:6px;">■</span> High
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Waypoints -->
+        <div class="sidebar-section">
+            <div class="section-header">
+                <div class="section-icon" style="background:rgba(167,139,250,0.15);color:var(--accent-purple);">📍</div>
+                <span class="section-title">Flight Route</span>
+            </div>
+            <div class="info-card">
+                <ul class="waypoint-list" id="waypoint-list">
+                    <li class="waypoint-item" style="color:var(--text-muted);font-style:italic;">
+                        Click "Add Waypoint" to draw a route
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Triage Section (hidden initially) -->
+        <div class="sidebar-section" id="triage-section" style="display:none;">
+            <div class="section-header">
+                <div class="section-icon" style="background:rgba(239,68,68,0.15);color:var(--accent-red);">🚨</div>
+                <span class="section-title">Emergency Triage</span>
+            </div>
+
+            <div class="msa-display" id="msa-display">
+                <div><span class="msa-value" id="msa-value">—</span><span class="msa-unit">ft</span></div>
+                <div class="msa-label">Dynamic Minimum Safe Altitude</div>
+            </div>
+
+            <div id="triage-cards"></div>
+
+            <!-- Sector Analysis -->
+            <div class="info-card" style="margin-top:12px;">
+                <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">
+                    Sector Analysis
+                </div>
+                <table class="sector-table" id="sector-table">
+                    <thead>
+                        <tr>
+                            <th>Sector</th>
+                            <th>FLSI</th>
+                            <th>Max Elev</th>
+                            <th>TTCI</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sector-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Triage Placeholder -->
+        <div id="triage-placeholder">
+            <div class="triage-placeholder">
+                <div class="icon">🛡️</div>
+                <div>Press <strong>⚠ MAYDAY</strong> to activate<br>emergency triage engine</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ═══════ SCRIPTS ═══════ -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ──────────────────── DATA ────────────────────
+// All data is embedded for zero-server operation.
+// The triage data mirrors pipeline.py output for the default scene.
+
+const SCENE = { west: 77.0, south: 31.0, east: 77.45, north: 31.45, rows: 500, cols: 500 };
+const AC_POS = { lon: 77.22, lat: 31.225 };
+const GLIDE_NM = 8.0;
+
+// TTCI data will be generated client-side to match the pipeline
+// LULC data: we replicate the same spatial layout
+
+const TRIAGE_DATA = {
+    aircraft_pos: { lon: 77.22, lat: 31.225 },
+    glide_radius_nm: 8.0,
+    dynamic_msa_ft: 8807,
+    n_candidate_pixels: 82219,
+    top3_vectors: [
+        {
+            comp_id: 2, lon: 77.21794, lat: 31.22608,
+            mean_flsi: 0.837, mean_slope_deg: 3.7, mean_ttci: 0.0403,
+            size_pixels: 26441, dom_lulc_code: 30,
+            dom_lulc_name: "Grassland", survival_class: "HIGH"
+        },
+        {
+            comp_id: 1, lon: 77.1098, lat: 31.31524,
+            mean_flsi: 0.800, mean_slope_deg: 2.23, mean_ttci: 0.0243,
+            size_pixels: 1545, dom_lulc_code: 30,
+            dom_lulc_name: "Grassland", survival_class: "HIGH"
+        },
+        {
+            comp_id: 4, lon: 77.30725, lat: 31.13342,
+            mean_flsi: 0.800, mean_slope_deg: 5.35, mean_ttci: 0.0585,
+            size_pixels: 3300, dom_lulc_code: 30,
+            dom_lulc_name: "Grassland", survival_class: "HIGH"
+        }
+    ],
+    sector_metrics: [
+        { sector: "N",  mean_flsi: 0.1441, max_elev_m: 2353.6, mean_ttci: 0.111 },
+        { sector: "NE", mean_flsi: 0.247,  max_elev_m: 1940.9, mean_ttci: 0.0861 },
+        { sector: "E",  mean_flsi: 0.5974, max_elev_m: 1936.5, mean_ttci: 0.0606 },
+        { sector: "SE", mean_flsi: 0.4159, max_elev_m: 2032.4, mean_ttci: 0.1027 },
+        { sector: "S",  mean_flsi: 0.1416, max_elev_m: 2282.4, mean_ttci: 0.1218 },
+        { sector: "SW", mean_flsi: 0.2115, max_elev_m: 1926.2, mean_ttci: 0.0864 },
+        { sector: "W",  mean_flsi: 0.5991, max_elev_m: 1524.8, mean_ttci: 0.035 },
+        { sector: "NW", mean_flsi: 0.3401, max_elev_m: 1732.2, mean_ttci: 0.0759 }
+    ]
+};
+
+// ──────────────────── MAP INIT ────────────────────
+
+const map = L.map('map', {
+    center: [31.225, 77.225],
+    zoom: 11,
+    zoomControl: false,
+    attributionControl: false
+});
+
+L.control.zoom({ position: 'topright' }).addTo(map);
+L.control.attribution({ position: 'bottomright', prefix: false })
+    .addAttribution('© <a href="https://esri.com">Esri</a> | TerrainGuard')
+    .addTo(map);
+
+// Satellite base layer
+const satellite = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { maxZoom: 18 }
+).addTo(map);
+
+// ──────────────────── TTCI CANVAS OVERLAY ────────────────────
+
+function generateTTCICanvas() {
+    const canvas = document.createElement('canvas');
+    canvas.width = SCENE.cols;
+    canvas.height = SCENE.rows;
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(SCENE.cols, SCENE.rows);
+
+    // Generate terrain-like TTCI data
+    // Use seeded pseudo-random for consistency
+    function seededRandom(seed) {
+        let s = seed;
+        return function() {
+            s = (s * 16807 + 0) % 2147483647;
+            return s / 2147483647;
+        };
+    }
+
+    const rand = seededRandom(42);
+
+    // Create base noise layers
+    const ttci = new Float32Array(SCENE.rows * SCENE.cols);
+
+    // Simple fractal noise approximation
+    for (let octave = 0; octave < 4; octave++) {
+        const freq = Math.pow(2, octave + 1);
+        const amp = 1 / Math.pow(2, octave);
+
+        // Create a low-res noise grid and interpolate
+        const gw = Math.ceil(SCENE.cols / freq) + 2;
+        const gh = Math.ceil(SCENE.rows / freq) + 2;
+        const grid = [];
+        for (let i = 0; i < gh * gw; i++) grid.push(rand());
+
+        for (let r = 0; r < SCENE.rows; r++) {
+            for (let c = 0; c < SCENE.cols; c++) {
+                const gx = c / freq;
+                const gy = r / freq;
+                const x0 = Math.floor(gx), y0 = Math.floor(gy);
+                const fx = gx - x0, fy = gy - y0;
+                const sfx = fx * fx * (3 - 2 * fx);
+                const sfy = fy * fy * (3 - 2 * fy);
+
+                const v00 = grid[y0 * gw + x0] || 0;
+                const v10 = grid[y0 * gw + x0 + 1] || 0;
+                const v01 = grid[(y0 + 1) * gw + x0] || 0;
+                const v11 = grid[(y0 + 1) * gw + x0 + 1] || 0;
+
+                const v = (v00 * (1 - sfx) + v10 * sfx) * (1 - sfy) +
+                          (v01 * (1 - sfx) + v11 * sfx) * sfy;
+
+                ttci[r * SCENE.cols + c] += v * amp;
+            }
+        }
+    }
+
+    // Normalize to [0,1]
+    let minV = Infinity, maxV = -Infinity;
+    for (let i = 0; i < ttci.length; i++) {
+        if (ttci[i] < minV) minV = ttci[i];
+        if (ttci[i] > maxV) maxV = ttci[i];
+    }
+    const range = maxV - minV || 1;
+
+    // Valley region: low TTCI (rows 200-300, cols 100-400)
+    for (let r = 0; r < SCENE.rows; r++) {
+        for (let c = 0; c < SCENE.cols; c++) {
+            let val = (ttci[r * SCENE.cols + c] - minV) / range;
+
+            // Lower TTCI in valley region
+            if (r >= 190 && r <= 310 && c >= 90 && c <= 410) {
+                const dr = Math.max(0, Math.min((r - 190) / 10, 1, (310 - r) / 10));
+                const dc = Math.max(0, Math.min((c - 90) / 10, 1, (410 - c) / 10));
+                const blend = dr * dc;
+                val = val * (1 - blend * 0.8);
+            }
+
+            ttci[r * SCENE.cols + c] = val;
+        }
+    }
+
+    // Color mapping: green → yellow → red
+    for (let r = 0; r < SCENE.rows; r++) {
+        for (let c = 0; c < SCENE.cols; c++) {
+            const idx = (r * SCENE.cols + c) * 4;
+            const v = ttci[r * SCENE.cols + c];
+
+            let red, green, blue;
+            if (v < 0.3) {
+                // Green zone
+                const t = v / 0.3;
+                red = Math.round(t * 255);
+                green = 255;
+                blue = 0;
+            } else if (v < 0.7) {
+                // Yellow → orange
+                const t = (v - 0.3) / 0.4;
+                red = 255;
+                green = Math.round(255 * (1 - t * 0.6));
+                blue = 0;
+            } else {
+                // Red zone
+                const t = (v - 0.7) / 0.3;
+                red = 255;
+                green = Math.round(100 * (1 - t));
+                blue = 0;
+            }
+
+            imgData.data[idx] = red;
+            imgData.data[idx + 1] = green;
+            imgData.data[idx + 2] = blue;
+            imgData.data[idx + 3] = 140; // Semi-transparent
+        }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+    return canvas;
+}
+
+const ttciCanvas = generateTTCICanvas();
+const ttciBounds = [[SCENE.south, SCENE.west], [SCENE.north, SCENE.east]];
+const ttciOverlay = L.imageOverlay(ttciCanvas.toDataURL(), ttciBounds, { opacity: 0.6 }).addTo(map);
+
+// ──────────────────── LULC CANVAS OVERLAY ────────────────────
+
+function generateLULCCanvas() {
+    const canvas = document.createElement('canvas');
+    canvas.width = SCENE.cols;
+    canvas.height = SCENE.rows;
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(SCENE.cols, SCENE.rows);
+
+    const LULC_COLORS = {
+        10: [255, 68, 68],    // Urban - red
+        20: [34, 139, 34],    // Forest - green
+        30: [136, 204, 68],   // Grassland - light green
+        40: [68, 136, 255],   // Water - blue
+        50: [255, 170, 0]     // Runway - amber
+    };
+
+    for (let r = 0; r < SCENE.rows; r++) {
+        for (let c = 0; c < SCENE.cols; c++) {
+            const idx = (r * SCENE.cols + c) * 4;
+            let classCode = 20; // default forest
+
+            // Valley → Grassland
+            if (r >= 200 && r < 300 && c >= 100 && c < 400) classCode = 30;
+            // NW grassland clearing
+            if (r >= 120 && r < 170 && c >= 50 && c < 140) classCode = 30;
+            // SE grassland clearing
+            if (r >= 330 && r < 380 && c >= 300 && c < 400) classCode = 30;
+            // Urban cluster
+            if (r >= 285 && r < 315 && c >= 108 && c < 165) classCode = 10;
+            // Water body
+            if (r >= 210 && r < 252 && c >= 348 && c < 392) classCode = 40;
+            // Airport runway
+            if (r >= 233 && r < 267 && c >= 178 && c < 322) classCode = 50;
+
+            const color = LULC_COLORS[classCode];
+            imgData.data[idx] = color[0];
+            imgData.data[idx + 1] = color[1];
+            imgData.data[idx + 2] = color[2];
+            imgData.data[idx + 3] = 150;
+        }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+    return canvas;
+}
+
+const lulcCanvas = generateLULCCanvas();
+const lulcOverlay = L.imageOverlay(lulcCanvas.toDataURL(), ttciBounds, { opacity: 0.55 });
+// LULC starts hidden
+
+// ──────────────────── AIRCRAFT MARKER ────────────────────
+
+const acIcon = L.divIcon({
+    className: '',
+    html: `<div style="
+        width:32px;height:32px;
+        display:flex;align-items:center;justify-content:center;
+        font-size:22px;
+        filter:drop-shadow(0 0 8px rgba(0,255,204,0.7));
+        transform:rotate(-45deg);
+    ">✈️</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16]
+});
+
+const acMarker = L.marker([AC_POS.lat, AC_POS.lon], { icon: acIcon }).addTo(map);
+acMarker.bindPopup(`
+    <div class="popup-title">Aircraft Position</div>
+    <div class="popup-row"><span class="popup-label">Lon:</span><span class="popup-val">${AC_POS.lon}°E</span></div>
+    <div class="popup-row"><span class="popup-label">Lat:</span><span class="popup-val">${AC_POS.lat}°N</span></div>
+    <div class="popup-row"><span class="popup-label">Glide:</span><span class="popup-val">${GLIDE_NM} NM</span></div>
+`);
+
+// ──────────────────── FLIGHT ROUTE ────────────────────
+
+let waypoints = [];
+let routePolyline = null;
+let routeBuffer = null;
+let drawMode = false;
+const waypointMarkers = [];
+const NM_TO_DEG = 1 / 60; // 1 NM ≈ 1/60 degree
+const BUFFER_NM = 10;
+
+function toggleDrawMode() {
+    drawMode = !drawMode;
+    const btn = document.getElementById('btn-add-wp');
+    if (drawMode) {
+        btn.classList.add('active');
+        btn.textContent = '✚ Drawing…';
+        document.getElementById('map-wrap').classList.add('drawing-cursor');
+    } else {
+        btn.classList.remove('active');
+        btn.textContent = '✚ Add Waypoint';
+        document.getElementById('map-wrap').classList.remove('drawing-cursor');
+    }
+}
+
+map.on('click', function(e) {
+    if (!drawMode) return;
+
+    const wp = { lat: e.latlng.lat, lon: e.latlng.lng };
+    waypoints.push(wp);
+
+    // Add marker
+    const wpIcon = L.divIcon({
+        className: '',
+        html: `<div style="
+            width:14px;height:14px;
+            background:var(--accent-cyan, #00ffcc);
+            border:2px solid #fff;
+            border-radius:50%;
+            box-shadow:0 0 8px rgba(0,255,204,0.6);
+        "></div>`,
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+    });
+    const marker = L.marker([wp.lat, wp.lon], { icon: wpIcon }).addTo(map);
+    waypointMarkers.push(marker);
+
+    drawRoute();
+    updateWaypointList();
+});
+
+function drawRoute() {
+    // Remove old
+    if (routePolyline) map.removeLayer(routePolyline);
+    if (routeBuffer) map.removeLayer(routeBuffer);
+
+    if (waypoints.length < 2) return;
+
+    const latlngs = waypoints.map(w => [w.lat, w.lon]);
+
+    // Route line
+    routePolyline = L.polyline(latlngs, {
+        color: '#00e5ff',
+        weight: 3,
+        dashArray: '10, 6',
+        opacity: 0.9
+    }).addTo(map);
+
+    // Buffer polygon (10 NM)
+    const bufferPts = generateBufferPolygon(waypoints, BUFFER_NM);
+    routeBuffer = L.polygon(bufferPts, {
+        color: '#00e5ff',
+        fillColor: '#00e5ff',
+        fillOpacity: 0.08,
+        weight: 1,
+        dashArray: '4, 4',
+        opacity: 0.4
+    }).addTo(map);
+}
+
+function generateBufferPolygon(wps, bufferNm) {
+    // Simple offset buffer for a polyline
+    const offset = bufferNm * NM_TO_DEG;
+    const left = [], right = [];
+
+    for (let i = 0; i < wps.length - 1; i++) {
+        const dx = wps[i + 1].lon - wps[i].lon;
+        const dy = wps[i + 1].lat - wps[i].lat;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const nx = -dy / len * offset;
+        const ny = dx / len * offset;
+
+        left.push([wps[i].lat + nx, wps[i].lon + ny]);
+        left.push([wps[i + 1].lat + nx, wps[i + 1].lon + ny]);
+        right.unshift([wps[i].lat - nx, wps[i].lon - ny]);
+        right.unshift([wps[i + 1].lat - nx, wps[i + 1].lon - ny]);
+    }
+
+    // Add rounded caps
+    const first = wps[0], last = wps[wps.length - 1];
+    const capPts = 8;
+    const startCap = [], endCap = [];
+
+    // Simplified end caps using semicircles
+    for (let i = 0; i <= capPts; i++) {
+        const angle = Math.PI / 2 + (Math.PI * i / capPts);
+        const dx0 = wps[1].lon - wps[0].lon;
+        const dy0 = wps[1].lat - wps[0].lat;
+        const baseAngle = Math.atan2(dy0, dx0);
+        startCap.push([
+            first.lat + offset * Math.sin(baseAngle + angle),
+            first.lon + offset * Math.cos(baseAngle + angle)
+        ]);
+    }
+
+    for (let i = 0; i <= capPts; i++) {
+        const angle = -Math.PI / 2 + (Math.PI * i / capPts);
+        const dx0 = wps[wps.length - 1].lon - wps[wps.length - 2].lon;
+        const dy0 = wps[wps.length - 1].lat - wps[wps.length - 2].lat;
+        const baseAngle = Math.atan2(dy0, dx0);
+        endCap.push([
+            last.lat + offset * Math.sin(baseAngle + angle),
+            last.lon + offset * Math.cos(baseAngle + angle)
+        ]);
+    }
+
+    return [...left, ...endCap, ...right, ...startCap];
+}
+
+function updateWaypointList() {
+    const list = document.getElementById('waypoint-list');
+    if (waypoints.length === 0) {
+        list.innerHTML = '<li class="waypoint-item" style="color:var(--text-muted);font-style:italic;">Click "Add Waypoint" to draw a route</li>';
+        return;
+    }
+    list.innerHTML = waypoints.map((wp, i) => `
+        <li class="waypoint-item fade-in" style="animation-delay:${i * 0.05}s">
+            <div class="waypoint-dot" style="background:${i === 0 ? 'var(--accent-green)' : i === waypoints.length - 1 ? 'var(--accent-red)' : 'var(--accent-cyan)'}"></div>
+            <span style="font-weight:600;color:var(--text-primary);min-width:28px;">WP${i + 1}</span>
+            <span class="waypoint-coords">${wp.lat.toFixed(4)}°N, ${wp.lon.toFixed(4)}°E</span>
+        </li>
+    `).join('');
+}
+
+function clearWaypoints() {
+    waypoints = [];
+    waypointMarkers.forEach(m => map.removeLayer(m));
+    waypointMarkers.length = 0;
+    if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
+    if (routeBuffer) { map.removeLayer(routeBuffer); routeBuffer = null; }
+    updateWaypointList();
+    if (drawMode) toggleDrawMode();
+}
+
+// ──────────────────── LAYER TOGGLES ────────────────────
+
+const layerState = { ttci: true, lulc: false, route: true };
+
+function toggleLayer(name) {
+    layerState[name] = !layerState[name];
+    const toggle = document.getElementById(`toggle-${name}`);
+    toggle.classList.toggle('on', layerState[name]);
+
+    if (name === 'ttci') {
+        layerState[name] ? ttciOverlay.addTo(map) : map.removeLayer(ttciOverlay);
+    } else if (name === 'lulc') {
+        layerState[name] ? lulcOverlay.addTo(map) : map.removeLayer(lulcOverlay);
+    } else if (name === 'route') {
+        if (layerState[name]) {
+            if (routePolyline) routePolyline.addTo(map);
+            if (routeBuffer) routeBuffer.addTo(map);
+        } else {
+            if (routePolyline) map.removeLayer(routePolyline);
+            if (routeBuffer) map.removeLayer(routeBuffer);
+        }
+    }
+}
+
+// ──────────────────── MAYDAY TRIAGE ────────────────────
+
+let maydayActive = false;
+let glideCone = null;
+let vectorLines = [];
+let landingMarkers = [];
+
+function toggleMayday() {
+    maydayActive = !maydayActive;
+    const btn = document.getElementById('btn-mayday');
+    const pill = document.getElementById('status-pill');
+    const statusText = document.getElementById('status-text');
+
+    if (maydayActive) {
+        btn.classList.add('active');
+        btn.textContent = '⚠ ACTIVE';
+        pill.classList.add('triage');
+        statusText.textContent = 'TRIAGE ACTIVE';
+        activateTriage();
+    } else {
+        btn.classList.remove('active');
+        btn.textContent = '⚠ MAYDAY';
+        pill.classList.remove('triage');
+        statusText.textContent = 'NOMINAL';
+        deactivateTriage();
+    }
+}
+
+function activateTriage() {
+    const data = TRIAGE_DATA;
+
+    // Show triage section
+    document.getElementById('triage-section').style.display = 'block';
+    document.getElementById('triage-placeholder').style.display = 'none';
+
+    // MSA
+    document.getElementById('msa-value').textContent = data.dynamic_msa_ft.toLocaleString();
+
+    // Glide cone (animated)
+    const glideMetres = GLIDE_NM * 1852;
+    glideCone = L.circle([AC_POS.lat, AC_POS.lon], {
+        radius: glideMetres,
+        color: '#ef4444',
+        fillColor: '#ef4444',
+        fillOpacity: 0.06,
+        weight: 2,
+        dashArray: '8, 4',
+        className: 'glide-cone-anim'
+    }).addTo(map);
+
+    // Inject animation CSS for glide cone
+    if (!document.getElementById('glide-anim-style')) {
+        const style = document.createElement('style');
+        style.id = 'glide-anim-style';
+        style.textContent = `
+            @keyframes glideExpand {
+                from { stroke-dashoffset: 100; opacity: 0.3; }
+                to { stroke-dashoffset: 0; opacity: 1; }
+            }
+            .glide-cone-anim { animation: glideExpand 1s ease-out forwards; }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // Top-3 vectors
+    const vectorColors = [
+        { color: '#22c55e', dash: null, label: 'Priority 1' },
+        { color: '#38bdf8', dash: '8, 6', label: 'Priority 2' },
+        { color: '#f59e0b', dash: '6, 4', label: 'Priority 3' }
+    ];
+
+    const cardsContainer = document.getElementById('triage-cards');
+    cardsContainer.innerHTML = '';
+
+    data.top3_vectors.forEach((vec, i) => {
+        // Vector line
+        const line = L.polyline(
+            [[AC_POS.lat, AC_POS.lon], [vec.lat, vec.lon]],
+            {
+                color: vectorColors[i].color,
+                weight: i === 0 ? 3 : 2,
+                dashArray: vectorColors[i].dash,
+                opacity: 0.9
+            }
+        ).addTo(map);
+        vectorLines.push(line);
+
+        // Landing marker
+        const markerIcon = L.divIcon({
+            className: '',
+            html: `<div style="
+                width:24px;height:24px;
+                border-radius:50%;
+                background:${vectorColors[i].color};
+                border:3px solid #fff;
+                box-shadow:0 0 12px ${vectorColors[i].color}88;
+                display:flex;align-items:center;justify-content:center;
+                font-size:11px;font-weight:800;color:#fff;
+            ">${i + 1}</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+
+        const marker = L.marker([vec.lat, vec.lon], { icon: markerIcon }).addTo(map);
+        marker.bindPopup(`
+            <div class="popup-title">${vectorColors[i].label} – ${vec.dom_lulc_name}</div>
+            <div class="popup-row"><span class="popup-label">FLSI:</span><span class="popup-val" style="color:${vectorColors[i].color}">${(vec.mean_flsi * 100).toFixed(1)}%</span></div>
+            <div class="popup-row"><span class="popup-label">Slope:</span><span class="popup-val">${vec.mean_slope_deg}°</span></div>
+            <div class="popup-row"><span class="popup-label">TTCI:</span><span class="popup-val">${vec.mean_ttci.toFixed(3)}</span></div>
+            <div class="popup-row"><span class="popup-label">Area:</span><span class="popup-val">${vec.size_pixels.toLocaleString()} px</span></div>
+            <div class="popup-row"><span class="popup-label">Survival:</span><span class="popup-val" style="color:${vec.survival_class === 'HIGH' ? '#22c55e' : vec.survival_class === 'MODERATE' ? '#f59e0b' : '#ef4444'}">${vec.survival_class}</span></div>
+        `);
+
+        // Auto-open Priority 1
+        if (i === 0) setTimeout(() => marker.openPopup(), 600);
+        landingMarkers.push(marker);
+
+        // Triage card
+        const card = document.createElement('div');
+        card.className = 'triage-card';
+        card.innerHTML = `
+            <div class="triage-priority" style="background:${vectorColors[i].color}"></div>
+            <div class="card-header">
+                <span class="priority-badge" style="background:${vectorColors[i].color}22;color:${vectorColors[i].color};border:1px solid ${vectorColors[i].color}44;">
+                    ${vectorColors[i].label}
+                </span>
+                <span class="survival-badge survival-${vec.survival_class}">${vec.survival_class}</span>
+            </div>
+            <div style="padding-left:10px;margin-bottom:10px;">
+                <div style="font-size:14px;font-weight:700;color:var(--text-primary);">${vec.dom_lulc_name}</div>
+                <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);">${vec.lon}°E, ${vec.lat}°N</div>
+            </div>
+            <div class="triage-metrics">
+                <div class="metric-box">
+                    <div class="metric-label">FLSI</div>
+                    <div class="metric-value" style="color:${vectorColors[i].color}">${(vec.mean_flsi * 100).toFixed(1)}%</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Slope</div>
+                    <div class="metric-value">${vec.mean_slope_deg}°</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">TTCI</div>
+                    <div class="metric-value">${vec.mean_ttci.toFixed(3)}</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Area</div>
+                    <div class="metric-value">${vec.size_pixels.toLocaleString()} px</div>
+                </div>
+            </div>
+        `;
+        cardsContainer.appendChild(card);
+        // Stagger animation
+        setTimeout(() => card.classList.add('visible'), 200 + i * 150);
+
+        // Click card to fly to location
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', () => {
+            map.flyTo([vec.lat, vec.lon], 13, { duration: 1 });
+            marker.openPopup();
+        });
+    });
+
+    // Sector table
+    const tbody = document.getElementById('sector-tbody');
+    tbody.innerHTML = data.sector_metrics.map(s => {
+        const flsiColor = s.mean_flsi >= 0.5 ? '#22c55e' : s.mean_flsi >= 0.3 ? '#f59e0b' : '#ef4444';
+        return `
+            <tr>
+                <td style="font-weight:600;color:var(--text-primary);">${s.sector}</td>
+                <td style="color:${flsiColor}">${s.mean_flsi.toFixed(3)}</td>
+                <td>${s.max_elev_m.toFixed(0)} m</td>
+                <td>${s.mean_ttci.toFixed(3)}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function deactivateTriage() {
+    document.getElementById('triage-section').style.display = 'none';
+    document.getElementById('triage-placeholder').style.display = 'block';
+
+    if (glideCone) { map.removeLayer(glideCone); glideCone = null; }
+    vectorLines.forEach(l => map.removeLayer(l));
+    vectorLines = [];
+    landingMarkers.forEach(m => map.removeLayer(m));
+    landingMarkers = [];
+}
+
+// ──────────────────── DEFAULT FLIGHT ROUTE ────────────────────
+
+// Add a sample route along the valley
+const defaultWaypoints = [
+    { lat: 31.18, lon: 77.05 },
+    { lat: 31.20, lon: 77.15 },
+    { lat: 31.225, lon: 77.22 },
+    { lat: 31.25, lon: 77.30 },
+    { lat: 31.27, lon: 77.40 }
+];
+
+defaultWaypoints.forEach(wp => {
+    waypoints.push(wp);
+    const wpIcon = L.divIcon({
+        className: '',
+        html: `<div style="
+            width:12px;height:12px;
+            background:#00ffcc;
+            border:2px solid #fff;
+            border-radius:50%;
+            box-shadow:0 0 8px rgba(0,255,204,0.5);
+        "></div>`,
+        iconSize: [12, 12],
+        iconAnchor: [6, 6]
+    });
+    const marker = L.marker([wp.lat, wp.lon], { icon: wpIcon }).addTo(map);
+    waypointMarkers.push(marker);
+});
+
+drawRoute();
+updateWaypointList();
+
+// ──────────────────── INIT ────────────────────
+
+// Fit map to scene
+map.fitBounds([[SCENE.south, SCENE.west], [SCENE.north, SCENE.east]], { padding: [20, 20] });
+</script>
+</body>
+</html>

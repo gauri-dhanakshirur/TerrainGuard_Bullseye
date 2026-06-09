@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated outputs (re-generate with: python pipeline.py)
+# Uncomment these if you don't want to track generated files:
+# terrain_dem.tif
+# land_cover.tif
+# terrain_ttci.tif
+# terrain_analysis_dashboard.png
+# survivability_correlation_chart.png
+# avionics_output.json
+
+# Build artifacts
+.dist/

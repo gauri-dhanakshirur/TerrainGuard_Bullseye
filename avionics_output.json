@@ -1,0 +1,105 @@
+{
+  "aircraft_pos": {
+    "lon": 77.22,
+    "lat": 31.225
+  },
+  "glide_radius_nm": 8.0,
+  "dynamic_msa_ft": 8807.0,
+  "n_candidate_pixels": 82219,
+  "top3_vectors": [
+    {
+      "comp_id": 2,
+      "lon": 77.21794,
+      "lat": 31.22608,
+      "mean_flsi": 0.837,
+      "mean_slope_deg": 3.7,
+      "mean_ttci": 0.0403,
+      "size_pixels": 26441,
+      "dom_lulc_code": 30,
+      "dom_lulc_name": "Grassland",
+      "survival_class": "HIGH"
+    },
+    {
+      "comp_id": 1,
+      "lon": 77.1098,
+      "lat": 31.31524,
+      "mean_flsi": 0.8,
+      "mean_slope_deg": 2.23,
+      "mean_ttci": 0.0243,
+      "size_pixels": 1545,
+      "dom_lulc_code": 30,
+      "dom_lulc_name": "Grassland",
+      "survival_class": "HIGH"
+    },
+    {
+      "comp_id": 4,
+      "lon": 77.30725,
+      "lat": 31.13342,
+      "mean_flsi": 0.8,
+      "mean_slope_deg": 5.35,
+      "mean_ttci": 0.0585,
+      "size_pixels": 3300,
+      "dom_lulc_code": 30,
+      "dom_lulc_name": "Grassland",
+      "survival_class": "HIGH"
+    }
+  ],
+  "sector_metrics": [
+    {
+      "sector": "N",
+      "mean_flsi": 0.1441,
+      "max_elev_m": 2353.6,
+      "mean_ttci": 0.111,
+      "n_pixels": 11611
+    },
+    {
+      "sector": "NE",
+      "mean_flsi": 0.247,
+      "max_elev_m": 1940.9,
+      "mean_ttci": 0.0861,
+      "n_pixels": 11617
+    },
+    {
+      "sector": "E",
+      "mean_flsi": 0.5974,
+      "max_elev_m": 1936.5,
+      "mean_ttci": 0.0606,
+      "n_pixels": 11610
+    },
+    {
+      "sector": "SE",
+      "mean_flsi": 0.4159,
+      "max_elev_m": 2032.4,
+      "mean_ttci": 0.1027,
+      "n_pixels": 11617
+    },
+    {
+      "sector": "S",
+      "mean_flsi": 0.1416,
+      "max_elev_m": 2282.4,
+      "mean_ttci": 0.1218,
+      "n_pixels": 11610
+    },
+    {
+      "sector": "SW",
+      "mean_flsi": 0.2115,
+      "max_elev_m": 1926.2,
+      "mean_ttci": 0.0864,
+      "n_pixels": 11617
+    },
+    {
+      "sector": "W",
+      "mean_flsi": 0.5991,
+      "max_elev_m": 1524.8,
+      "mean_ttci": 0.035,
+      "n_pixels": 11610
+    },
+    {
+      "sector": "NW",
+      "mean_flsi": 0.3401,
+      "max_elev_m": 1732.2,
+      "mean_ttci": 0.0759,
+      "n_pixels": 11617
+    }
+  ]
+}
